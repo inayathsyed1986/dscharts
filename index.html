@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Org Charts</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body { font-family: 'DM Sans', sans-serif; background: #f7f5f0; min-height: 100vh; padding: 60px 40px; }
+
+  header { text-align: center; margin-bottom: 60px; }
+  header h1 { font-family: 'Playfair Display', serif; font-size: 32px; color: #2c2c2c; margin-bottom: 8px; }
+  header p  { font-size: 13px; color: #8a7e6e; letter-spacing: 0.1em; }
+
+  .charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 24px; max-width: 1000px; margin: 0 auto;
+  }
+
+  .chart-card {
+    background: #fff; border-radius: 14px; padding: 28px 24px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+    text-decoration: none; color: inherit;
+    border-top: 4px solid #c9a96e;
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex; flex-direction: column; gap: 8px; position: relative;
+  }
+  .chart-card:hover { transform: translateY(-3px); box-shadow: 0 6px 24px rgba(0,0,0,0.11); }
+  .chart-card .card-icon { font-size: 22px; margin-bottom: 4px; }
+  .chart-card h2 { font-family: 'Playfair Display', serif; font-size: 17px; color: #2c2c2c; }
+  .chart-card p  { font-size: 12px; color: #8a7e6e; }
+  .chart-card .arrow { margin-top: auto; padding-top: 16px; font-size: 18px; color: #c9a96e; }
+
+  .card-delete {
+    position: absolute; top: 12px; right: 14px;
+    background: none; border: none; font-size: 16px; color: #ddd;
+    cursor: pointer; transition: color 0.15s; line-height: 1;
+  }
+  .card-delete:hover { color: #e07070; }
+
+  .new-card {
+    border-radius: 14px; padding: 28px 24px;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 10px; cursor: pointer;
+    background: transparent; border: 2px dashed #d5cfc6;
+    transition: border-color 0.2s, background 0.2s;
+    text-align: center; min-height: 160px;
+  }
+  .new-card:hover { border-color: #c9a96e; background: #fdf9f3; }
+  .new-card .plus { font-size: 28px; color: #c9a96e; }
+  .new-card span  { font-size: 13px; color: #8a7e6e; }
+
+  .empty-state { text-align: center; color: #aaa; font-size: 13px; padding: 20px; grid-column: 1/-1; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.3); z-index: 100;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: #fff; border-radius: 16px; padding: 36px 32px;
+    width: 100%; max-width: 420px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+  }
+  .modal h2 { font-family: 'Playfair Display', serif; font-size: 20px; color: #2c2c2c; margin-bottom: 6px; }
+  .modal .sub { font-size: 12px; color: #8a7e6e; margin-bottom: 24px; }
+  .modal label {
+    display: block; font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #8a7e6e; margin-bottom: 6px; margin-top: 16px;
+  }
+  .modal input {
+    width: 100%; border: 1px solid #e0dbd3; border-radius: 8px;
+    padding: 10px 12px; font-family: 'DM Sans', sans-serif;
+    font-size: 13px; color: #2c2c2c; outline: none; transition: border-color 0.2s;
+  }
+  .modal input:focus { border-color: #c9a96e; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 28px; }
+  .btn-primary {
+    flex: 1; background: #c9a96e; color: #fff; border: none;
+    border-radius: 8px; padding: 11px;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .btn-primary:hover { background: #b8944f; }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-secondary {
+    background: none; border: 1px solid #d5cfc6; border-radius: 8px;
+    padding: 11px 18px; font-family: 'DM Sans', sans-serif;
+    font-size: 13px; color: #8a7e6e; cursor: pointer; transition: border-color 0.2s;
+  }
+  .btn-secondary:hover { border-color: #b0a898; }
+
+  .chart-card:nth-child(4n+1) { border-top-color: #c9a96e; }
+  .chart-card:nth-child(4n+2) { border-top-color: #7a9e87; }
+  .chart-card:nth-child(4n+3) { border-top-color: #7a8ea8; }
+  .chart-card:nth-child(4n)   { border-top-color: #a87a8e; }
+
+  #loading-msg { text-align:center; color:#8a7e6e; font-size:13px; padding:40px; grid-column:1/-1; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Organization Charts</h1>
+  <p>Select a chart to view or edit</p>
+</header>
+
+<div class="charts-grid" id="charts-grid">
+  <p id="loading-msg">Loading charts…</p>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2>New Org Chart</h2>
+    <p class="sub">Enter a name to create a new chart</p>
+    <label>Chart Name</label>
+    <input type="text" id="new-name" placeholder="e.g. Acme Corp" />
+    <label>Description (optional)</label>
+    <input type="text" id="new-desc" placeholder="e.g. Q1 2026 Structure" />
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" id="create-btn" onclick="createChart()">Create Chart →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzu7aCDAfUvVV-EgQcBw4WHN6YMCgm4Jyca5YH72TxpkBQrSCIw-coPpma9pETp_1ULtg/exec';
+
+  function chartURL(id, name) {
+    return `chart.html?id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}`;
+  }
+
+  function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  async function loadCharts() {
+    const grid = document.getElementById('charts-grid');
+    try {
+      const res    = await fetch(SCRIPT_URL + '?action=listCharts&t=' + Date.now());
+      const json   = await res.json();
+      const charts = json.charts || [];
+
+      grid.innerHTML = '';
+
+      charts.forEach(chart => {
+        const a = document.createElement('a');
+        a.className = 'chart-card';
+        a.href      = chartURL(chart.id, chart.name);
+        a.innerHTML = `
+          <button class="card-delete" title="Delete chart">×</button>
+          <div class="card-icon">🏢</div>
+          <h2>${esc(chart.name)}</h2>
+          <p>${esc(chart.desc || 'Org Chart')}</p>
+          <div class="arrow">→</div>
+        `;
+        a.querySelector('.card-delete').addEventListener('click', e => {
+          e.preventDefault(); e.stopPropagation();
+          if (confirm(`Remove "${chart.name}" from the list?\n\nNote: Data in Google Sheets is kept.`)) {
+            deleteChart(chart.id);
+          }
+        });
+        grid.appendChild(a);
+      });
+
+      // Add "new chart" card
+      const newCard = document.createElement('div');
+      newCard.className = 'new-card';
+      newCard.onclick   = openNewModal;
+      newCard.innerHTML = '<div class="plus">+</div><span>Create New Chart</span>';
+      grid.appendChild(newCard);
+
+    } catch(e) {
+      grid.innerHTML = `
+        <p style="color:#c97a7a;grid-column:1/-1;text-align:center;padding:20px;">
+          Could not load charts. Check your internet connection and try refreshing.
+        </p>
+        <div class="new-card" onclick="openNewModal()" style="grid-column:1/-1;max-width:300px;margin:0 auto;">
+          <div class="plus">+</div><span>Create New Chart</span>
+        </div>`;
+    }
+  }
+
+  async function deleteChart(id) {
+    try {
+      await fetch(SCRIPT_URL, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deleteChart', chartId: id }),
+      });
+    } catch(e) {}
+    // Reload regardless
+    loadCharts();
+  }
+
+  function openNewModal() {
+    document.getElementById('new-name').value = '';
+    document.getElementById('new-desc').value = '';
+    document.getElementById('modal').classList.add('show');
+    setTimeout(() => document.getElementById('new-name').focus(), 100);
+  }
+
+  function closeModal() {
+    document.getElementById('modal').classList.remove('show');
+  }
+
+  async function createChart() {
+    const name = document.getElementById('new-name').value.trim();
+    const desc = document.getElementById('new-desc').value.trim();
+    if (!name) { alert('Please enter a chart name.'); return; }
+
+    const btn = document.getElementById('create-btn');
+    btn.textContent = 'Creating…'; btn.disabled = true;
+
+    const id = 'chart_' + Date.now();
+
+    try {
+      await fetch(SCRIPT_URL, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'createChart', id, name, desc }),
+      });
+    } catch(e) {}
+
+    closeModal();
+    window.location.href = chartURL(id, name);
+  }
+
+  document.getElementById('modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+  document.getElementById('modal').addEventListener('keydown', e => {
+    if (e.key === 'Enter') createChart();
+  });
+
+  loadCharts();
+</script>
+</body>
+</html>
